@@ -9,17 +9,20 @@
 import UIKit
 import FirebaseDatabase
 import FirebaseAuth
+import ChatBubble
 
 struct Message {
     //var name:String?
     var text:String
     var sender:String
     var time:String
+    var isSender:Bool
     
-    init(sender:String, text:String, time:String) {
+    init(sender:String, text:String, time:String, _ isSender:Bool) {
        self.sender = sender
        self.text = text
        self.time = time
+       self.isSender = isSender
     }
   
 }
@@ -41,6 +44,14 @@ class ChatManager: NSObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy,MM,dd,HH,mm,ss"
         return formatter.string(from: Date())
+    }
+    
+    static func isSender(uid:String)->Bool {
+        guard let user_id = LoginManager.shared.user?.uid else {return false}
+        if uid == user_id {
+            return true
+        }
+        return false
     }
     
     
@@ -65,18 +76,38 @@ extension ChatCollectionFunctions: UICollectionViewDelegate, UICollectionViewDat
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        if let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ChatCell", for: indexPath) as? ChatCell {
+
+        guard let user = self.messages?[indexPath.row].isSender else {return UICollectionViewCell()}
+        if user == true {
+            guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SenderMsgCell.identifier, for: indexPath) as? SenderMsgCell else{return UICollectionViewCell()}
             if let sender = messages?[indexPath.row].sender {
                 FirebaseService.getSender(uid: sender) { (name) in
                     guard let name = name else {return}
+                    guard let text = self.messages?[indexPath.row].text else {return}
                     DispatchQueue.main.async {
-                        cell.sender.text = name
-                        cell.message.text = self.messages?[indexPath.row].text
+                        cell.sender?.text = name
+                        cell.message?.text = text
                     }
                 }
+                return cell
             }
-            return cell
         }
+        else {
+            
+           guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ReceiverMsgCell.identifier, for: indexPath) as? ReceiverMsgCell else{return UICollectionViewCell()}
+            if let sender = messages?[indexPath.row].sender {
+                FirebaseService.getSender(uid: sender) { (name) in
+                    guard let name = name else {return}
+                    guard let text = self.messages?[indexPath.row].text else {return}
+                    DispatchQueue.main.async {
+                        cell.sender?.text = name
+                        cell.message?.text = text
+                    }
+                }
+                return cell
+            }
+        }
+    
         return UICollectionViewCell()
     }
     
